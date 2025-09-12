@@ -1,6 +1,6 @@
 # Servidor WebSocket para o Addon "Simple Multiplayer" da Godot
 
-Este repositório contém o código-fonte do servidor Node.js projetado para funcionar com o [Simple WebSocket Multiplayer for Godot](https://link-para-o-seu-addon-na-assetlib-ou-github).
+Este repositório contém o código-fonte do servidor Node.js projetado para funcionar com o [Simple WebSocket Multiplayer for Godot](https://github.com/welson-rodrigues/GodotWebSocketMultiplayer).
 
 O servidor é construído com Express e a biblioteca `ws`, fornecendo uma solução leve e eficiente para gerenciar salas de jogo, jogadores e sincronização de dados básicos.
 
@@ -23,11 +23,11 @@ O servidor é construído com Express e a biblioteca `ws`, fornecendo uma soluç
 
 1.  Clone este repositório:
     ```sh
-    git clone [https://link-do-seu-repositorio-servidor.git](https://link-do-seu-repositorio-servidor.git)
+    git clone https://github.com/welson-rodrigues/GodotWebSocketMultiplayer
     ```
 2.  Navegue até a pasta do projeto:
     ```sh
-    cd nome-da-pasta-do-servidor
+    cd ServidorWebSocketGodot
     ```
 3.  Instale as dependências necessárias:
     ```sh
