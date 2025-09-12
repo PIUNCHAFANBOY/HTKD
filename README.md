@@ -27,7 +27,7 @@ O servidor é construído com Express e a biblioteca `ws`, fornecendo uma soluç
     ```
 2.  Navegue até a pasta do projeto:
     ```sh
-    cd ServidorWebSocketGodot
+    cd GodotWebSocketMultiplayer
     ```
 3.  Instale as dependências necessárias:
     ```sh
