@@ -19,7 +19,7 @@ function generateRoomCode(length = 5) {
     return result;
 }
 
-// Sistema de playerlist baseado no seu projeto
+// Sistema para gerenciar os dados dos jogadores
 const playerlist = {
     players: [],
     
@@ -32,12 +32,18 @@ const playerlist = {
     },
     
     add: function(uuid, roomCode) {
+        // Verifica quantos jogadores já existem na sala ANTES de adicionar o novo
+        const playersInRoom = this.getByRoom(roomCode);
+        const isFirstPlayer = playersInRoom.length === 0;
+
+        // Define a posição baseada se é o primeiro ou o segundo jogador
         let player = {
             uuid,
             room: roomCode,
-            x: 620,
-            y: 300,
+            x: isFirstPlayer ? 550 : 700, // Jogador 1 na esquerda, Jogador 2 na direita
+            y: 300,                      // Mesma altura Y
         };
+
         this.players.push(player);
         return player;
     },
@@ -64,7 +70,7 @@ wss.on("connection", (socket) => {
     socket.uuid = uuid;
     console.log(`Cliente conectado: ${uuid}`);
 
-    // Envia o UUID para o novo cliente
+    // Envia o UUID para o novo cliente assim que ele conecta
     socket.send(JSON.stringify({ 
         cmd: "joined_server", 
         content: { uuid: uuid } 
@@ -86,18 +92,17 @@ wss.on("connection", (socket) => {
                 rooms.set(newRoomId, { players: {} });
                 rooms.get(newRoomId).players[uuid] = socket;
                 
-                // Adiciona à playerlist
                 const newPlayer = playerlist.add(uuid, newRoomId);
                 
                 console.log(`Sala ${newRoomId} criada pelo jogador ${uuid}`);
                 
-                // Resposta para o criador da sala
+                // Resposta para o criador da sala com o código
                 socket.send(JSON.stringify({ 
                     cmd: "room_created", 
                     content: { code: newRoomId } 
                 }));
                 
-                // Spawn do jogador local
+                // Manda o criador da sala spawnar seu próprio personagem
                 socket.send(JSON.stringify({
                     cmd: "spawn_local_player",
                     content: { player: newPlayer }
@@ -106,7 +111,9 @@ wss.on("connection", (socket) => {
             }
             
             case "join_room": {
-                const roomToJoin = rooms.get(data.content.code.toUpperCase());
+                const roomCode = data.content.code.toUpperCase();
+                const roomToJoin = rooms.get(roomCode);
+                
                 if (!roomToJoin) {
                     socket.send(JSON.stringify({ 
                         cmd: "error", 
@@ -115,27 +122,26 @@ wss.on("connection", (socket) => {
                     return;
                 }
                 
-                socket.roomId = data.content.code.toUpperCase();
+                socket.roomId = roomCode;
                 roomToJoin.players[uuid] = socket;
                 
-                // Adiciona à playerlist
                 const newPlayer = playerlist.add(uuid, socket.roomId);
                 
                 console.log(`Jogador ${uuid} entrou na sala ${socket.roomId}`);
                 
-                // Avisa o novo jogador que ele entrou
+                // Avisa o novo jogador que ele entrou com sucesso
                 socket.send(JSON.stringify({ 
                     cmd: "room_joined", 
                     content: { code: socket.roomId } 
                 }));
                 
-                // Spawn do jogador local para o novo jogador
+                // Manda o novo jogador spawnar seu próprio personagem
                 socket.send(JSON.stringify({
                     cmd: "spawn_local_player",
                     content: { player: newPlayer }
                 }));
                 
-                // Envia todos os jogadores da sala para o novo jogador
+                // Envia a lista de jogadores que já estão na sala para o novo jogador
                 const roomPlayers = playerlist.getByRoom(socket.roomId)
                     .filter(p => p.uuid !== uuid);
                 
@@ -144,7 +150,7 @@ wss.on("connection", (socket) => {
                     content: { players: roomPlayers }
                 }));
                 
-                // Avisa os outros jogadores que um novo jogador entrou
+                // Avisa os jogadores antigos que um novo jogador entrou
                 for (const clientUuid in roomToJoin.players) {
                     const client = roomToJoin.players[clientUuid];
                     if (client !== socket && client.readyState === WebSocket.OPEN) {
@@ -154,14 +160,28 @@ wss.on("connection", (socket) => {
                         }));
                     }
                 }
+
+                // Lógica para iniciar o jogo se a sala tiver 2 ou mais jogadores
+                if (Object.keys(roomToJoin.players).length >= 2) {
+                    console.log(`Sala ${socket.roomId} atingiu o número de jogadores. Começando o jogo!`);
+                    for (const clientUuid in roomToJoin.players) {
+                        const client = roomToJoin.players[clientUuid];
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify({
+                                cmd: "start_game",
+                                content: {}
+                            }));
+                        }
+                    }
+                }
                 break;
             }
             
             case "position": {
                 playerlist.update(uuid, data.content.x, data.content.y);
-                
                 const room = rooms.get(socket.roomId);
                 if (room) {
+                    // Envia a atualização de posição para todos os outros jogadores na sala
                     for (const clientUuid in room.players) {
                         const client = room.players[clientUuid];
                         if (client !== socket && client.readyState === WebSocket.OPEN) {
@@ -182,6 +202,7 @@ wss.on("connection", (socket) => {
             case "chat": {
                 const room = rooms.get(socket.roomId);
                 if (room) {
+                    // Envia a mensagem de chat para todos na sala (incluindo quem enviou)
                     for (const clientUuid in room.players) {
                         const client = room.players[clientUuid];
                         if (client.readyState === WebSocket.OPEN) {
@@ -203,14 +224,13 @@ wss.on("connection", (socket) => {
     socket.on("close", () => {
         console.log(`Cliente desconectado: ${uuid}`);
         
-        // Remove da playerlist
         playerlist.remove(uuid);
         
         const room = rooms.get(socket.roomId);
         if (room) {
             delete room.players[uuid];
             
-            // Avisa os outros jogadores
+            // Avisa os jogadores restantes que este jogador se desconectou
             for (const clientUuid in room.players) {
                 const client = room.players[clientUuid];
                 if (client.readyState === WebSocket.OPEN) {
@@ -221,6 +241,7 @@ wss.on("connection", (socket) => {
                 }
             }
             
+            // Se a sala ficar vazia, remove ela
             if (Object.keys(room.players).length === 0) {
                 rooms.delete(socket.roomId);
                 console.log(`Sala ${socket.roomId} vazia e removida.`);
