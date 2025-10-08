@@ -189,7 +189,7 @@ wss.on("connection", (socket) => {
 
                 // Quando há 2 ou mais jogadores na sala, começa o jogo
                 // Troque o "length >= 2" pelo número de jogadores que você quer na sala
-                if (Object.keys(roomToJoin.players).length >= 8) {
+                if (Object.keys(roomToJoin.players).length >= 2) {
                     console.log(`Sala ${socket.roomId} atingiu o número de jogadores. Começando o jogo!`);
                     for (const clientUuid in roomToJoin.players) {
                         const client = roomToJoin.players[clientUuid];
